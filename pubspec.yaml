@@ -8,9 +8,14 @@ documentation: https://github.com/brendan-duncan/archive/wiki
 dependencies:
   crypto: '>=2.0.0 <3.0.0'
   args: '>=1.4.0 <2.0.0'
-  path: '>=1.5.1 <2.0.0'
+  path: ^1.8.0-nullsafety
 dev_dependencies:
-  test: '>=0.12.13 <2.0.0'
-  build_web_compilers: '>=0.3.6 <2.0.0'
+  test: ^1.16.0-nullsafety
+  build_web_compilers: '>=0.3.6 <3.0.0'
   build_runner: '>=0.8.10 <2.0.0'
-  pedantic: ^1.0.0
+  pedantic: ^1.10.0-nullsafety
+
+dependency_overrides:
+  crypto: {git: git://github.com/dart-lang/crypto}
+  args: {git: git://github.com/dart-lang/args}
+  convert: ^3.0.0-nullsafety
