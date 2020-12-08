@@ -112,7 +112,8 @@ class ZipDirectory {
 
     final zip64EOCDSize = input.readUint64(); // ignore: unused_local_variable
     final zip64Version = input.readUint16(); // ignore: unused_local_variable
-    final zip64VersionNeeded = input.readUint16(); // ignore: unused_local_variable
+    final zip64VersionNeeded =
+        input.readUint16(); // ignore: unused_local_variable
     final zip64DiskNumber = input.readUint32();
     final zip64StartDisk = input.readUint32();
     final zip64NumEntriesOnDisk = input.readUint64();

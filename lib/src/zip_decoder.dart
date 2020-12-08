@@ -11,8 +11,7 @@ class ZipDecoder {
   ZipDirectory directory;
 
   Archive decodeBytes(List<int> data, {bool verify = false, String password}) {
-    return decodeBuffer(InputStream(data),
-        verify: verify, password: password);
+    return decodeBuffer(InputStream(data), verify: verify, password: password);
   }
 
   Archive decodeBuffer(InputStream input,
@@ -35,8 +34,8 @@ class ZipDecoder {
       }
 
       dynamic content = zf.rawContent;
-      var file = ArchiveFile(zf.filename, zf.uncompressedSize, content,
-          zf.compressionMethod);
+      var file = ArchiveFile(
+          zf.filename, zf.uncompressedSize, content, zf.compressionMethod);
 
       file.mode = mode >> 16;
 

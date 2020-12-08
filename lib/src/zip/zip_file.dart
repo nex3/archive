@@ -1,7 +1,8 @@
+import 'dart:io';
+
 import '../util/archive_exception.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
-import '../zlib/inflate.dart';
 import 'zip_file_header.dart';
 
 class ZipFile {
@@ -89,7 +90,7 @@ class ZipFile {
       }
 
       if (compressionMethod == DEFLATE) {
-        _content = Inflate.buffer(_rawContent, uncompressedSize).getBytes();
+        _content = ZLibDecoder(raw: true).convert(_rawContent.toUint8List());
         compressionMethod = STORE;
       } else {
         _content = _rawContent.toUint8List();

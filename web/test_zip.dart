@@ -21,6 +21,6 @@ void main() {
       final archive = ZipDecoder().decodeBytes(bytes, verify: true);
       print('NUMBER OF FILES ${archive.numberOfFiles()}');
     }
- });
- req.send('');
+  });
+  req.send('');
 }

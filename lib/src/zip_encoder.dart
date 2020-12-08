@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
@@ -6,7 +7,6 @@ import 'util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
-import 'zlib/deflate.dart';
 import 'archive.dart';
 import 'archive_file.dart';
 
@@ -34,7 +34,7 @@ class _ZipEncoderData {
   int endOfCentralDirectorySize = 0;
   List<_ZipFileData> files = [];
 
-  _ZipEncoderData(this.level) {
+  _ZipEncoderData([int level]) : level = level ?? ZLibOption.defaultLevel {
     final dateTime = DateTime.now();
     final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
     final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
@@ -51,8 +51,7 @@ class ZipEncoder {
   _ZipEncoderData _data;
   OutputStreamBase _output;
 
-  List<int> encode(Archive archive,
-      {int level = Deflate.BEST_SPEED, OutputStreamBase output}) {
+  List<int> encode(Archive archive, {int level, OutputStreamBase output}) {
     output ??= OutputStream();
 
     startEncode(output, level: level);
@@ -67,7 +66,7 @@ class ZipEncoder {
     return null;
   }
 
-  void startEncode(OutputStreamBase output, {int level = Deflate.BEST_SPEED}) {
+  void startEncode(OutputStreamBase output, {int level}) {
     _data = _ZipEncoderData(level);
     _output = output;
   }
@@ -132,18 +131,19 @@ class ZipEncoder {
       if (bytes is InputStreamBase) {
         bytes = bytes.toUint8List();
       }
-      bytes = Deflate(bytes as List<int>, level: _data.level).getBytes();
+      bytes = ZLibEncoder(level: _data.level, raw: true)
+          .convert(bytes as List<int>);
       compressedData = InputStream(bytes);
     }
 
     var filename = Utf8Encoder().convert(file.name);
-    var comment = file.comment != null ? Utf8Encoder().convert(file.comment) : null;
+    var comment =
+        file.comment != null ? Utf8Encoder().convert(file.comment) : null;
 
     _data.localFileSize += 30 + filename.length + compressedData.length;
 
-    _data.centralDirectorySize += 46 +
-        filename.length +
-        (comment != null ? comment.length : 0);
+    _data.centralDirectorySize +=
+        46 + filename.length + (comment != null ? comment.length : 0);
 
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
@@ -170,8 +170,8 @@ class ZipEncoder {
 
     final version = VERSION;
     final flags = 0;
-    final compressionMethod = fileData.compress
-        ? ZipFile.DEFLATE : ZipFile.STORE;
+    final compressionMethod =
+        fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
     final crc32 = fileData.crc32;

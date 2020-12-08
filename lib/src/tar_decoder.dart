@@ -48,10 +48,8 @@ class TarDecoder {
       } else {
         files.add(tf);
 
-        final file = ArchiveFile(
-            nextName ?? tf.filename,
-            tf.fileSize,
-            tf.rawContent);
+        final file =
+            ArchiveFile(nextName ?? tf.filename, tf.fileSize, tf.rawContent);
 
         file.mode = tf.mode;
         file.ownerId = tf.ownerId;

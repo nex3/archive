@@ -62,7 +62,8 @@ class InputStream extends InputStreamBase {
   InputStream(dynamic data,
       {this.byteOrder = LITTLE_ENDIAN, int start = 0, int length})
       : buffer = data is TypedData
-            ? Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes)
+            ? Uint8List.view(
+                data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
                 ? data
                 : List<int>.from(data as Iterable<dynamic>),
@@ -135,7 +136,8 @@ class InputStream extends InputStreamBase {
   /// was not found.
   int indexOf(int value, [int offset = 0]) {
     for (var i = this.offset + offset, end = this.offset + length;
-        i < end; ++i) {
+        i < end;
+        ++i) {
       if (buffer[i] == value) {
         return i - start;
       }
@@ -188,15 +190,13 @@ class InputStream extends InputStreamBase {
         }
         codes.add(c);
       }
-      throw ArchiveException(
-          'EOF reached without finding string terminator');
+      throw ArchiveException('EOF reached without finding string terminator');
     }
 
     final s = readBytes(size);
     final bytes = s.toUint8List();
-    final str = utf8
-        ? Utf8Decoder().convert(bytes)
-        : String.fromCharCodes(bytes);
+    final str =
+        utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
     return str;
   }
 
@@ -275,8 +275,7 @@ class InputStream extends InputStreamBase {
       if ((offset + len) > b.length) {
         len = b.length - offset;
       }
-      final bytes =
-          Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
+      final bytes = Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
     }
     var end = offset + len;

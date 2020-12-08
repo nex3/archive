@@ -124,7 +124,9 @@ class TarFile {
 
   int get size => _content != null
       ? _content.length as int
-      : _rawContent != null ? _rawContent.length : 0;
+      : _rawContent != null
+          ? _rawContent.length
+          : 0;
 
   @override
   String toString() => '[${filename}, ${mode}, ${fileSize}]';

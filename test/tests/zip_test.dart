@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -249,51 +249,12 @@ void main() {
     expect(decodedFile.name, origialFileName);
   });
 
-  test('zip executable', () async {
-    // Only tested on linux so far
-    if (Platform.isLinux || Platform.isMacOS) {
-      var path = p.join('.dart_tool', 'archive', 'test', 'zip_executable');
-      var srcPath = p.join(path, 'src');
-
-      try {
-        await Directory(path).deleteSync(recursive: true);
-      } catch (_) {}
-      final dir = Directory(srcPath);
-      await dir.create(recursive: true);
-
-      // Create an executable file and zip it
-      final file = File(p.join(srcPath, 'test.bin'));
-      await file.writeAsString('bin', flush: true);
-      await Process.run('chmod', ['+x', file.path]);
-
-      final subdir = Directory(p.join(dir.path, 'subdir'));
-      await subdir.createSync(recursive: true);
-      var file2 = File(p.join(subdir.path, 'test2.bin'));
-      await file2.writeAsString('bin2', flush: true);
-      await Process.run('chmod', ['+x', file2.path]);
-
-      var dstFilePath = p.join(path, 'test.zip');
-      ZipFileEncoder().zipDirectory(Directory(srcPath), filename: dstFilePath);
-
-      // Read
-      final bytes = await File(dstFilePath).readAsBytes();
-
-      // Decode the Zip file
-      final archive = ZipDecoder().decodeBytes(bytes);
-
-      final archiveFile = archive.first;
-      expect(archiveFile.mode, file.statSync().mode);
-      expect(archiveFile.isFile, true);
-    }
-  });
-
   test('encode', () {
     final archive = Archive();
     var bdata = 'hello world';
     var bytes = Uint8List.fromList(bdata.codeUnits);
     final name = 'abc.txt';
-    final afile =
-        ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
 
     var zip_data = ZipEncoder().encode(archive);
@@ -318,7 +279,8 @@ void main() {
     var b = File(p.join(testDirPath, 'res/zip/hello.txt'));
     final b_bytes = b.readAsBytesSync();
 
-    final archive = ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
+    final archive =
+        ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
     expect(archive.numberOfFiles(), equals(1));
 
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
@@ -377,7 +339,7 @@ void main() {
       var bytes = file.readAsBytesSync();
 
       final zipDecoder = ZipDecoder();
-      final archive =zipDecoder.decodeBytes(bytes, verify: true);
+      final archive = zipDecoder.decodeBytes(bytes, verify: true);
       final zipFiles = zipDecoder.directory.fileHeaders;
 
       if (z.containsKey('Comment')) {

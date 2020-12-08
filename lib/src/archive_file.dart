@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'util/input_stream.dart';
-import 'zlib/inflate.dart';
 
 /// A file contained in an Archive.
 class ArchiveFile {
@@ -30,7 +31,8 @@ class ArchiveFile {
     return mode & 0x1FF;
   }
 
-  ArchiveFile(this.name, this.size, dynamic content, [this._compressionType = STORE]) {
+  ArchiveFile(this.name, this.size, dynamic content,
+      [this._compressionType = STORE]) {
     if (content is List<int>) {
       _content = content;
       _rawContent = InputStream(_content);
@@ -68,7 +70,7 @@ class ArchiveFile {
   void decompress() {
     if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
-        _content = Inflate.buffer(_rawContent, size).getBytes();
+        _content = zlib.decode(_rawContent.toUint8List());
       } else {
         _content = _rawContent.toUint8List();
       }
