@@ -67,7 +67,7 @@ class TarFile {
 
   TarFile();
 
-  TarFile.read(InputStreamBase input, {bool storeData = true}) {
+  TarFile.read(InputStreamBase input) {
     final header = input.readBytes(512);
 
     // The name, linkname, magic, uname, and gname are null-terminated
@@ -93,7 +93,7 @@ class TarFile {
       deviceMinorNumber = _parseInt(header, 8);
     }
 
-    if (storeData || filename == '././@LongLink') {
+    if (filename == '././@LongLink') {
       _rawContent = input.readBytes(fileSize);
     } else {
       input.skip(fileSize);
