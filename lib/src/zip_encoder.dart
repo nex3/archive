@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:typed_data/typed_data.dart';
 
 import 'util/crc32.dart';
 import 'util/input_stream.dart';
-import 'util/output_stream.dart';
 import 'zip/zip_directory.dart';
 import 'zip/zip_file.dart';
 import 'zip/zip_file_header.dart';
@@ -49,26 +51,22 @@ class _ZipEncoderData {
 /// Encode an [Archive] object into a Zip formatted buffer.
 class ZipEncoder {
   _ZipEncoderData _data;
-  OutputStreamBase _output;
+  Uint8Buffer _buffer;
 
-  List<int> encode(Archive archive, {int level, OutputStreamBase output}) {
-    output ??= OutputStream();
+  List<int> encode(Archive archive, {int level, Uint8Buffer buffer}) {
+    buffer ??= Uint8Buffer();
 
-    startEncode(output, level: level);
+    startEncode(buffer, level: level);
     for (final file in archive.files) {
       addFile(file);
     }
     endEncode(comment: archive.comment);
-    if (output is OutputStream) {
-      return output.getBytes();
-    }
-
-    return null;
+    return Uint8List.view(buffer.buffer, 0, buffer.length);
   }
 
-  void startEncode(OutputStreamBase output, {int level}) {
+  void startEncode(Uint8Buffer buffer, {int level}) {
     _data = _ZipEncoderData(level);
-    _output = output;
+    _buffer = buffer;
   }
 
   int getFileCrc32(ArchiveFile file) {
@@ -151,22 +149,22 @@ class ZipEncoder {
     fileData.uncompressedSize = file.size;
     fileData.compress = file.compress;
     fileData.comment = file.comment;
-    fileData.position = _output.length;
+    fileData.position = _buffer.length;
 
-    _writeFile(fileData, _output);
+    _writeFile(fileData, _buffer);
 
     fileData.compressedData = null;
   }
 
   void endEncode({String comment = ''}) {
     // Write Central Directory and End Of Central Directory
-    _writeCentralDirectory(_data.files, comment, _output);
+    _writeCentralDirectory(_data.files, comment, _buffer);
   }
 
-  void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
+  void _writeFile(_ZipFileData fileData, Uint8Buffer buffer) {
     var filename = fileData.name;
 
-    output.writeUint32(ZipFile.SIGNATURE);
+    _writeUint32(buffer, ZipFile.SIGNATURE);
 
     final version = VERSION;
     final flags = 0;
@@ -183,28 +181,28 @@ class ZipEncoder {
 
     var filenameUtf8 = Utf8Encoder().convert(filename);
 
-    output.writeUint16(version);
-    output.writeUint16(flags);
-    output.writeUint16(compressionMethod);
-    output.writeUint16(lastModFileTime);
-    output.writeUint16(lastModFileDate);
-    output.writeUint32(crc32);
-    output.writeUint32(compressedSize);
-    output.writeUint32(uncompressedSize);
-    output.writeUint16(filenameUtf8.length);
-    output.writeUint16(extra.length);
-    output.writeBytes(filenameUtf8);
-    output.writeBytes(extra);
+    _writeUint16(buffer, version);
+    _writeUint16(buffer, flags);
+    _writeUint16(buffer, compressionMethod);
+    _writeUint16(buffer, lastModFileTime);
+    _writeUint16(buffer, lastModFileDate);
+    _writeUint32(buffer, crc32);
+    _writeUint32(buffer, compressedSize);
+    _writeUint32(buffer, uncompressedSize);
+    _writeUint16(buffer, filenameUtf8.length);
+    _writeUint16(buffer, extra.length);
+    buffer.addAll(filenameUtf8);
+    buffer.addAll(extra);
 
-    output.writeInputStream(compressedData);
+    buffer.addAll(compressedData.toUint8List());
   }
 
   void _writeCentralDirectory(
-      List<_ZipFileData> files, String comment, OutputStreamBase output) {
+      List<_ZipFileData> files, String comment, Uint8Buffer buffer) {
     comment ??= '';
     var commentUtf8 = Utf8Encoder().convert(comment);
 
-    final centralDirPosition = output.length;
+    final centralDirPosition = buffer.length;
     final version = VERSION;
     final os = OS_MSDOS;
 
@@ -232,44 +230,60 @@ class ZipEncoder {
       final filenameUtf8 = Utf8Encoder().convert(fileData.name);
       final fileCommentUtf8 = Utf8Encoder().convert(fileComment);
 
-      output.writeUint32(ZipFileHeader.SIGNATURE);
-      output.writeUint16(versionMadeBy);
-      output.writeUint16(versionNeededToExtract);
-      output.writeUint16(generalPurposeBitFlag);
-      output.writeUint16(compressionMethod);
-      output.writeUint16(lastModifiedFileTime);
-      output.writeUint16(lastModifiedFileDate);
-      output.writeUint32(crc32);
-      output.writeUint32(compressedSize);
-      output.writeUint32(uncompressedSize);
-      output.writeUint16(filenameUtf8.length);
-      output.writeUint16(extraField.length);
-      output.writeUint16(fileCommentUtf8.length);
-      output.writeUint16(diskNumberStart);
-      output.writeUint16(internalFileAttributes);
-      output.writeUint32(externalFileAttributes);
-      output.writeUint32(localHeaderOffset);
-      output.writeBytes(filenameUtf8);
-      output.writeBytes(extraField);
-      output.writeBytes(fileCommentUtf8);
+      _writeUint32(buffer, ZipFileHeader.SIGNATURE);
+      _writeUint16(buffer, versionMadeBy);
+      _writeUint16(buffer, versionNeededToExtract);
+      _writeUint16(buffer, generalPurposeBitFlag);
+      _writeUint16(buffer, compressionMethod);
+      _writeUint16(buffer, lastModifiedFileTime);
+      _writeUint16(buffer, lastModifiedFileDate);
+      _writeUint32(buffer, crc32);
+      _writeUint32(buffer, compressedSize);
+      _writeUint32(buffer, uncompressedSize);
+      _writeUint16(buffer, filenameUtf8.length);
+      _writeUint16(buffer, extraField.length);
+      _writeUint16(buffer, fileCommentUtf8.length);
+      _writeUint16(buffer, diskNumberStart);
+      _writeUint16(buffer, internalFileAttributes);
+      _writeUint32(buffer, externalFileAttributes);
+      _writeUint32(buffer, localHeaderOffset);
+      buffer.addAll(filenameUtf8);
+      buffer.addAll(extraField);
+      buffer.addAll(fileCommentUtf8);
     }
 
     final numberOfThisDisk = 0;
     final diskWithTheStartOfTheCentralDirectory = 0;
     final totalCentralDirectoryEntriesOnThisDisk = files.length;
     final totalCentralDirectoryEntries = files.length;
-    final centralDirectorySize = output.length - centralDirPosition;
+    final centralDirectorySize = buffer.length - centralDirPosition;
     final centralDirectoryOffset = centralDirPosition;
 
-    output.writeUint32(ZipDirectory.SIGNATURE);
-    output.writeUint16(numberOfThisDisk);
-    output.writeUint16(diskWithTheStartOfTheCentralDirectory);
-    output.writeUint16(totalCentralDirectoryEntriesOnThisDisk);
-    output.writeUint16(totalCentralDirectoryEntries);
-    output.writeUint32(centralDirectorySize);
-    output.writeUint32(centralDirectoryOffset);
-    output.writeUint16(commentUtf8.length);
-    output.writeBytes(commentUtf8);
+    _writeUint32(buffer, ZipDirectory.SIGNATURE);
+    _writeUint16(buffer, numberOfThisDisk);
+    _writeUint16(buffer, diskWithTheStartOfTheCentralDirectory);
+    _writeUint16(buffer, totalCentralDirectoryEntriesOnThisDisk);
+    _writeUint16(buffer, totalCentralDirectoryEntries);
+    _writeUint32(buffer, centralDirectorySize);
+    _writeUint32(buffer, centralDirectoryOffset);
+    _writeUint16(buffer, commentUtf8.length);
+    buffer.addAll(commentUtf8);
+  }
+
+  /// Writes [number] to [buffer] as a 16-bit little-endian number.
+  void _writeUint16(Uint8Buffer buffer, int number) {
+    assert(number < 0x10000);
+    buffer.add(number & 0xff);
+    buffer.add((number >> 8) & 0xff);
+  }
+
+  /// Writes [number] to [buffer] as a 32-bit little-endian number.
+  void _writeUint32(Uint8Buffer buffer, int number) {
+    assert(number < 0x100000000);
+    buffer.add(number & 0xff);
+    buffer.add((number >> 8) & 0xff);
+    buffer.add((number >> 16) & 0xff);
+    buffer.add((number >> 24) & 0xff);
   }
 
   static const int VERSION = 20;

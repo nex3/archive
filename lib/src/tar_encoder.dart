@@ -1,14 +1,18 @@
 import 'dart:typed_data';
+
+import 'package:typed_data/typed_data.dart';
+
 import 'tar/tar_file.dart';
-import 'util/output_stream.dart';
 import 'archive.dart';
 import 'archive_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
+  Uint8Buffer _buffer;
+
   List<int> encode(Archive archive) {
-    final output_stream = OutputStream();
-    start(output_stream);
+    final buffer = Uint8Buffer();
+    start(buffer);
 
     for (final file in archive.files) {
       add(file);
@@ -16,15 +20,15 @@ class TarEncoder {
 
     finish();
 
-    return output_stream.getBytes();
+    return Uint8List.view(buffer.buffer, 0, buffer.length);
   }
 
-  void start([dynamic output_stream]) {
-    _output_stream = output_stream ?? OutputStream();
+  void start([Uint8Buffer buffer]) {
+    _buffer = buffer ?? Uint8Buffer();
   }
 
   void add(ArchiveFile file) {
-    if (_output_stream == null) {
+    if (_buffer == null) {
       return;
     }
 
@@ -38,7 +42,7 @@ class TarEncoder {
       ts.groupId = 0;
       ts.lastModTime = 0;
       ts.content = file.name.codeUnits;
-      ts.write(_output_stream);
+      ts.write(_buffer);
     }
 
     final ts = TarFile();
@@ -49,16 +53,13 @@ class TarEncoder {
     ts.groupId = file.groupId;
     ts.lastModTime = file.lastModTime;
     ts.content = file.content;
-    ts.write(_output_stream);
+    ts.write(_buffer);
   }
 
   void finish() {
     // At the end of the archive file there are two 512-byte blocks filled
     // with binary zeros as an end-of-file marker.
-    final eof = Uint8List(1024);
-    _output_stream.writeBytes(eof);
-    _output_stream = null;
+    _buffer.length += 1024;
+    _buffer = null;
   }
-
-  dynamic _output_stream;
 }

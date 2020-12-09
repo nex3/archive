@@ -1,7 +1,9 @@
-import 'dart:typed_data';
+import 'dart:math' as math;
+
+import 'package:typed_data/typed_data.dart';
+
 import '../util/archive_exception.dart';
 import '../util/input_stream.dart';
-import '../util/output_stream.dart';
 
 /*  File Header (512 bytes)
  *  Offst Size Field
@@ -131,34 +133,36 @@ class TarFile {
   @override
   String toString() => '[${filename}, ${mode}, ${fileSize}]';
 
-  void write(dynamic output) {
+  void write(Uint8Buffer buffer) {
     fileSize = size;
 
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    final header = OutputStream();
-    _writeString(header, filename, 100);
-    _writeInt(header, mode, 8);
-    _writeInt(header, ownerId, 8);
-    _writeInt(header, groupId, 8);
-    _writeInt(header, fileSize, 12);
-    _writeInt(header, lastModTime, 12);
-    _writeString(header, '        ', 8); // checksum placeholder
-    _writeString(header, typeFlag, 1);
+    final headerStart = buffer.length;
+    _writeString(buffer, filename, 100);
+    _writeInt(buffer, mode, 8);
+    _writeInt(buffer, ownerId, 8);
+    _writeInt(buffer, groupId, 8);
+    _writeInt(buffer, fileSize, 12);
+    _writeInt(buffer, lastModTime, 12);
+    _writeString(buffer, '        ', 8); // checksum placeholder
+    _writeString(buffer, typeFlag, 1);
 
-    final remainder = 512 - header.length;
-    var nulls = Uint8List(remainder); // typed arrays default to 0.
-    header.writeBytes(nulls);
-
-    final headerBytes = header.getBytes();
+    // TAR headers are always padded with 0s to 512 bytes.
+    var lengthWithHeader = headerStart + 512;
+    assert(buffer.length <= lengthWithHeader);
+    buffer.length = lengthWithHeader;
 
     // The checksum is calculated by taking the sum of the unsigned byte values
     // of the header record with the eight checksum bytes taken to be ascii
     // spaces (decimal value 32). It is stored as a six digit octal number
     // with leading zeroes followed by a NUL and then a space.
+
+    // TODO(nweiz): Use the sum extension method when we can use null-safe
+    // package versions.
     var sum = 0;
-    for (var b in headerBytes) {
+    for (var b in buffer.skip(headerStart)) {
       sum += b;
     }
 
@@ -167,29 +171,23 @@ class TarFile {
       sum_str = '0' + sum_str;
     }
 
-    var checksum_index = 148; // checksum is at 148th byte
+    var checksumIndex = headerStart + 148; // checksum is at 148th byte
     for (var i = 0; i < 6; ++i) {
-      headerBytes[checksum_index++] = sum_str.codeUnits[i];
+      buffer[checksumIndex++] = sum_str.codeUnits[i];
     }
-    headerBytes[154] = 0;
-    headerBytes[155] = 32;
-
-    output.writeBytes(header.getBytes());
+    buffer[checksumIndex++] = 0;
+    buffer[checksumIndex++] = 32;
 
     if (_content != null) {
-      output.writeBytes(_content);
+      buffer.addAll(_content as List<int>);
     } else if (_rawContent != null) {
-      output.writeInputStream(_rawContent);
+      buffer.addAll(_rawContent.toUint8List());
     }
 
     if (isFile && fileSize > 0) {
       // Pad to 512-byte boundary
       final remainder = fileSize % 512;
-      if (remainder != 0) {
-        final skiplen = 512 - remainder;
-        nulls = Uint8List(skiplen); // typed arrays default to 0.
-        output.writeBytes(nulls);
-      }
+      if (remainder != 0) buffer.length += 512 - remainder;
     }
   }
 
@@ -222,18 +220,13 @@ class TarFile {
     }
   }
 
-  void _writeString(OutputStream output, String value, int numBytes) {
-    final codes = List<int>.filled(numBytes, 0);
-    final end = numBytes < value.length ? numBytes : value.length;
-    codes.setRange(0, end, value.codeUnits);
-    output.writeBytes(codes);
+  void _writeString(Uint8Buffer buffer, String value, int numBytes) {
+    final length = math.min(numBytes, value.length);
+    buffer.addAll(value.codeUnits, 0, length);
+    buffer.length += numBytes - length;
   }
 
-  void _writeInt(OutputStream output, int value, int numBytes) {
-    var s = value.toRadixString(8);
-    while (s.length < numBytes - 1) {
-      s = '0' + s;
-    }
-    _writeString(output, s, numBytes);
+  void _writeInt(Uint8Buffer buffer, int value, int numBytes) {
+    buffer.addAll(value.toRadixString(8).padLeft(numBytes, '0').codeUnits);
   }
 }
